@@ -5,6 +5,7 @@ import {
   toggleHeart,
   createComment,
   deletePrayer,
+  updatePrayer,
   setPublic,
   type Prayer,
 } from "@/lib/board";
@@ -20,6 +21,20 @@ export default function PrayerCard({
 }) {
   const [showComments, setShowComments] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(prayer.content);
+
+  async function onSaveEdit() {
+    if (!draft.trim()) return;
+    setBusy(true);
+    try {
+      await updatePrayer(prayer.id, draft);
+      setEditing(false);
+      onChange();
+    } finally {
+      setBusy(false);
+    }
+  }
 
   async function onHeart() {
     try {
@@ -72,7 +87,38 @@ export default function PrayerCard({
           {new Date(prayer.created_at).toLocaleString("ko-KR")}
         </span>
       </div>
-      <p className="text-stone-800 whitespace-pre-wrap mb-4">{prayer.content}</p>
+      {editing ? (
+        <div className="mb-4 space-y-2">
+          <textarea
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            rows={4}
+            maxLength={2000}
+            className="w-full px-3 py-2 rounded-lg border border-stone-200 text-sm resize-none"
+          />
+          <div className="flex gap-2 justify-end">
+            <button
+              onClick={() => {
+                setEditing(false);
+                setDraft(prayer.content);
+              }}
+              disabled={busy}
+              className="px-3 py-1.5 rounded-lg border border-stone-200 text-stone-600 text-xs"
+            >
+              취소
+            </button>
+            <button
+              onClick={onSaveEdit}
+              disabled={busy || !draft.trim()}
+              className="px-3 py-1.5 rounded-lg bg-stone-800 text-white text-xs disabled:bg-stone-300"
+            >
+              저장
+            </button>
+          </div>
+        </div>
+      ) : (
+        <p className="text-stone-800 whitespace-pre-wrap mb-4">{prayer.content}</p>
+      )}
       <div className="flex items-center gap-2 text-sm flex-wrap">
         <button
           onClick={onHeart}
@@ -99,14 +145,23 @@ export default function PrayerCard({
             {prayer.is_public ? "비공개로" : "게시판에 공개"}
           </button>
         )}
-        {prayer.is_mine && (
-          <button
-            onClick={onDelete}
-            disabled={busy}
-            className="ml-auto px-3 py-1.5 rounded-full border border-rose-200 text-rose-600 bg-white disabled:opacity-50"
-          >
-            삭제
-          </button>
+        {prayer.is_mine && !editing && (
+          <>
+            <button
+              onClick={() => setEditing(true)}
+              disabled={busy}
+              className="ml-auto px-3 py-1.5 rounded-full border border-stone-200 text-stone-600 bg-white disabled:opacity-50"
+            >
+              수정
+            </button>
+            <button
+              onClick={onDelete}
+              disabled={busy}
+              className="px-3 py-1.5 rounded-full border border-rose-200 text-rose-600 bg-white disabled:opacity-50"
+            >
+              삭제
+            </button>
+          </>
         )}
       </div>
       {showComments && (

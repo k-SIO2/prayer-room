@@ -118,6 +118,16 @@ export async function setPublic(prayerId: string, isPublic: boolean) {
   if (error) throw error;
 }
 
+export async function updatePrayer(prayerId: string, content: string) {
+  const token = getAnonToken();
+  const { error } = await supabase
+    .from("prayers")
+    .update({ content: content.trim() })
+    .eq("id", prayerId)
+    .eq("anon_token", token);
+  if (error) throw error;
+}
+
 export async function deletePrayer(prayerId: string) {
   const token = getAnonToken();
   const { error } = await supabase
