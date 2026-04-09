@@ -4,6 +4,8 @@ import { useState } from "react";
 import {
   toggleHeart,
   createComment,
+  updateComment,
+  deleteComment,
   deletePrayer,
   updatePrayer,
   setPublic,
@@ -171,6 +173,103 @@ export default function PrayerCard({
   );
 }
 
+function CommentItem({
+  comment,
+  onChange,
+}: {
+  comment: Prayer["comments"][number];
+  onChange: () => void;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(comment.content);
+  const [busy, setBusy] = useState(false);
+
+  async function onSave() {
+    if (!draft.trim()) return;
+    setBusy(true);
+    try {
+      await updateComment(comment.id, draft);
+      setEditing(false);
+      onChange();
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function onDelete() {
+    if (!confirm("댓글을 삭제할까요?")) return;
+    setBusy(true);
+    try {
+      await deleteComment(comment.id);
+      onChange();
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="text-sm">
+      <div className="flex items-center gap-2">
+        <span className="font-medium text-stone-700">{comment.author_name}</span>
+        <span className="text-stone-400 text-xs">
+          {new Date(comment.created_at).toLocaleString("ko-KR")}
+        </span>
+        {comment.is_mine && !editing && (
+          <div className="ml-auto flex gap-1">
+            <button
+              onClick={() => setEditing(true)}
+              disabled={busy}
+              className="text-xs text-stone-500 hover:text-stone-700"
+            >
+              수정
+            </button>
+            <span className="text-stone-300 text-xs">·</span>
+            <button
+              onClick={onDelete}
+              disabled={busy}
+              className="text-xs text-rose-500 hover:text-rose-700"
+            >
+              삭제
+            </button>
+          </div>
+        )}
+      </div>
+      {editing ? (
+        <div className="mt-1 space-y-2">
+          <textarea
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            rows={2}
+            maxLength={1000}
+            className="w-full px-3 py-2 rounded-lg border border-stone-200 text-sm resize-none"
+          />
+          <div className="flex gap-2 justify-end">
+            <button
+              onClick={() => {
+                setEditing(false);
+                setDraft(comment.content);
+              }}
+              disabled={busy}
+              className="px-2 py-1 rounded-lg border border-stone-200 text-stone-600 text-xs"
+            >
+              취소
+            </button>
+            <button
+              onClick={onSave}
+              disabled={busy || !draft.trim()}
+              className="px-2 py-1 rounded-lg bg-stone-800 text-white text-xs disabled:bg-stone-300"
+            >
+              저장
+            </button>
+          </div>
+        </div>
+      ) : (
+        <p className="text-stone-700 whitespace-pre-wrap mt-1">{comment.content}</p>
+      )}
+    </div>
+  );
+}
+
 function CommentSection({
   prayerId,
   comments,
@@ -202,13 +301,7 @@ function CommentSection({
   return (
     <div className="mt-4 pt-4 border-t border-stone-100 space-y-3">
       {comments.map((c) => (
-        <div key={c.id} className="text-sm">
-          <span className="font-medium text-stone-700">{c.author_name}</span>
-          <span className="text-stone-400 text-xs ml-2">
-            {new Date(c.created_at).toLocaleString("ko-KR")}
-          </span>
-          <p className="text-stone-700 whitespace-pre-wrap mt-1">{c.content}</p>
-        </div>
+        <CommentItem key={c.id} comment={c} onChange={onChange} />
       ))}
       <form onSubmit={submit} className="space-y-2 pt-2">
         <input

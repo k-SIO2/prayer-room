@@ -18,6 +18,8 @@ export type Comment = {
   content: string;
   author_name: string;
   is_anonymous: boolean;
+  anon_token?: string;
+  is_mine?: boolean;
   created_at: string;
 };
 
@@ -36,7 +38,7 @@ export type Prayer = {
 
 const SELECT_COLS = `id, content, author_name, is_anonymous, is_public, anon_token, created_at,
   prayer_hearts ( anon_token ),
-  comments ( id, prayer_id, content, author_name, is_anonymous, created_at )`;
+  comments ( id, prayer_id, content, author_name, is_anonymous, anon_token, created_at )`;
 
 type Row = {
   id: string;
@@ -47,7 +49,7 @@ type Row = {
   anon_token: string;
   created_at: string;
   prayer_hearts: { anon_token: string }[];
-  comments: Comment[];
+  comments: (Comment & { anon_token: string })[];
 };
 
 function mapRow(p: Row, token: string): Prayer {
@@ -62,7 +64,11 @@ function mapRow(p: Row, token: string): Prayer {
     hearts: p.prayer_hearts.length,
     i_hearted: p.prayer_hearts.some((h) => h.anon_token === token),
     comments: (p.comments || [])
-      .map((c) => ({ ...c, author_name: c.is_anonymous ? "익명" : c.author_name }))
+      .map((c) => ({
+        ...c,
+        author_name: c.is_anonymous ? "익명" : c.author_name,
+        is_mine: c.anon_token === token,
+      }))
       .sort((a, b) => a.created_at.localeCompare(b.created_at)),
   };
 }
@@ -153,6 +159,26 @@ export async function toggleHeart(prayerId: string, currentlyHearted: boolean) {
       .insert({ prayer_id: prayerId, anon_token: token });
     if (error && error.code !== "23505") throw error;
   }
+}
+
+export async function updateComment(commentId: string, content: string) {
+  const token = getAnonToken();
+  const { error } = await supabase
+    .from("comments")
+    .update({ content: content.trim() })
+    .eq("id", commentId)
+    .eq("anon_token", token);
+  if (error) throw error;
+}
+
+export async function deleteComment(commentId: string) {
+  const token = getAnonToken();
+  const { error } = await supabase
+    .from("comments")
+    .delete()
+    .eq("id", commentId)
+    .eq("anon_token", token);
+  if (error) throw error;
 }
 
 export async function createComment(
